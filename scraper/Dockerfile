@@ -1,6 +1,9 @@
 # Gunakan image resmi Playwright yang sudah berisi Python dan dependensi OS
 FROM mcr.microsoft.com/playwright/python:v1.42.0-jammy
 
+# Cegah Python menahan log print() di memori
+ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
 # Install xvfb (Virtual Frambuffer) untuk membuat monitor palsu
