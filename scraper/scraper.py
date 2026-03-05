@@ -110,7 +110,14 @@ async def run_scraper(query: str, max_tweets: int):
             context = await p.chromium.launch_persistent_context(
                 user_data_dir=profile_dir,
                 headless=True,
-                args=['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                viewport={"width": 1920, "height": 1080},
+                args=[
+                    '--no-sandbox', 
+                    '--disable-setuid-sandbox', 
+                    '--disable-dev-shm-usage',
+                    '--disable-blink-features=AutomationControlled'
+                ]
             )
             
             page = await context.new_page()

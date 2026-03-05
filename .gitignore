@@ -31,3 +31,5 @@ scraper/chrome-profile/
 scraper/state.json
 scraper/generate_state.py
 scraper/clean_profile.py
+
+error.png
