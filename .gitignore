@@ -1,0 +1,27 @@
+# Default ignored files
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+.env.example
+.DS_Store
+
+# IDE and Editor folders
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Downloaded Data / JSON / CSV
+scraper/*.json
+scraper/*.csv
+data/
+*.log
+
+# Docker environments
+.docker-compose.yml.*
