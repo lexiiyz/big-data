@@ -28,6 +28,6 @@ jobs:
             git pull origin main
             
             # Build ulang dan restart container twitter_scraper tanpa mengganggu service lain
-            docker compose up -d --build twitter_scraper
+            sudo docker compose up -d --build twitter_scraper
             
             echo "Deployment Berhasil! 🚀"
