@@ -108,7 +108,7 @@ async def run_scraper(query: str, max_tweets: int):
             
             # Launch browser biasa (bukan persistent context) dengan anti-bot args
             browser = await p.chromium.launch(
-                headless=True,
+                headless=False,
                 args=[
                     '--no-sandbox', 
                     '--disable-setuid-sandbox', 

@@ -3,6 +3,9 @@ FROM mcr.microsoft.com/playwright/python:v1.42.0-jammy
 
 WORKDIR /app
 
+# Install xvfb (Virtual Frambuffer) untuk membuat monitor palsu
+RUN apt-get update && apt-get install -y xvfb && rm -rf /var/lib/apt/lists/*
+
 # Copy requirements dan install
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -10,5 +13,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy sisa kode
 COPY . .
 
-# Command default saat container menyala sebagai API Server
-CMD ["uvicorn", "scraper:app", "--host", "0.0.0.0", "--port", "5000", "--reload"]
+# Command default dibungkus xvfb-run agar seakan berjalan di layar desktop
+CMD ["xvfb-run", "-a", "uvicorn", "scraper:app", "--host", "0.0.0.0", "--port", "5000", "--reload"]
