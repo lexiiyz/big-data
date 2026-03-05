@@ -24,8 +24,16 @@ async def scrape_x_topic(page, query, max_tweets=50):
         # Tambah timeout batas kesabaran dari 15 detik jadi 60 detik
         await page.wait_for_selector('[data-testid="tweet"]', timeout=60000)
     except Exception as e:
-        print("Gagal memuat tweet. Menyimpan screenshot layar ke /app/error.png...")
-        await page.screenshot(path="/app/error.png", full_page=True)
+        print(f"Gagal memuat tweet. Timeout: {e}")
+        try:
+            current_url = page.url
+            page_title = await page.title()
+            print(f"URL Terakhir: {current_url}")
+            print(f"Judul Halaman: {page_title}")
+            print("Menyimpan screenshot layar ke /app/error.png (tanpa full_page)...")
+            await page.screenshot(path="/app/error.png")
+        except Exception as inner_e:
+            print(f"Gagal mengambil screenshot tambahan: {inner_e}")
         return []
 
     tweets_data = []
