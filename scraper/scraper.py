@@ -19,9 +19,10 @@ async def scrape_x_topic(page, query, max_tweets=50):
     encoded_query = query.replace(" ", "%20")
     await page.goto(f"https://x.com/search?q={encoded_query}&src=typed_query")
     
-    print("Menunggu tweet load...")
+    print("Menunggu tweet load... (Tarik napas panjang, di VPS headless bisa makan waktu lebih lama)")
     try:
-        await page.wait_for_selector('[data-testid="tweet"]', timeout=15000)
+        # Tambah timeout batas kesabaran dari 15 detik jadi 60 detik
+        await page.wait_for_selector('[data-testid="tweet"]', timeout=60000)
     except Exception as e:
         print("Gagal memuat tweet. Menyimpan screenshot layar ke /app/error.png...")
         await page.screenshot(path="/app/error.png", full_page=True)
