@@ -22,8 +22,9 @@ async def scrape_x_topic(page, query, max_tweets=50):
     print("Menunggu tweet load...")
     try:
         await page.wait_for_selector('[data-testid="tweet"]', timeout=15000)
-    except Exception:
-        print("Gagal memuat tweet.")
+    except Exception as e:
+        print("Gagal memuat tweet. Menyimpan screenshot layar ke /app/error.png...")
+        await page.screenshot(path="/app/error.png", full_page=True)
         return []
 
     tweets_data = []
