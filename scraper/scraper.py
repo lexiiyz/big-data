@@ -94,30 +94,25 @@ async def scrape_x_topic(page, query, max_tweets=50):
 
 async def run_scraper(query: str, max_tweets: int):
     async with async_playwright() as p:
-        cdp_url = os.getenv("CDP_URL", "http://127.0.0.1:9222")
         try:
-            req = urllib.request.Request(f"{cdp_url.replace('ws://', 'http://')}/json/version")
-            req.add_header('Host', 'localhost:9222')
-            with urllib.request.urlopen(req) as response:
-                data = json.loads(response.read().decode())
-                ws_url = data['webSocketDebuggerUrl']
-                if "host.docker.internal" in cdp_url:
-                    ws_url = ws_url.replace("localhost", "host.docker.internal").replace("127.0.0.1", "host.docker.internal")
-                cdp_url = ws_url
-        except Exception:
-            pass
+            # Kita arahkan Playwright ke folder "chrome-profile" yang berisi cookies/login asli
+            profile_dir = "/app/chrome-profile"
             
-        try:
-            browser = await p.chromium.connect_over_cdp(cdp_url)
+            # Cek apakah folder profil ada di dalam Docker
+            if not os.path.exists(profile_dir):
+                print(f"Error: Folder profil {profile_dir} tidak ditemukan! Pastikan sudah mount folder 'chrome-profile'.")
+                return 0
+
+            print(f"Menjalankan browser chrome mode headless menggunakan User Data Dir: {profile_dir}...")
             
-            contexts = browser.contexts
-            if contexts:
-                context = contexts[0]
-                pages = context.pages
-                page = pages[0] if pages else await context.new_page()
-            else:
-                context = await browser.new_context()
-                page = await context.new_page()
+            # Kita launch secara "persistent context" agar cookies otomatis terbaca dan tersimpan tiap buka
+            context = await p.chromium.launch_persistent_context(
+                user_data_dir=profile_dir,
+                headless=True,
+                args=['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            )
+            
+            page = await context.new_page()
 
             hasil_scrape = await scrape_x_topic(page, query, max_tweets=max_tweets)
             
