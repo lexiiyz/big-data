@@ -21,9 +21,8 @@ jobs:
           password: ${{ secrets.VPS_PASSWORD }} 
           # key: ${{ secrets.VPS_SSH_KEY }}     
           script: |
-            # Pindah ke folder project di VPS (Sesuaikan path-nya!)
-            # Misalnya jika kamu taruh project di /var/www/bigdata
-            cd /root/bigdata || exit
+            # Pindah ke folder project di VPS
+            cd /home/richiee/big-data || exit
             
             # Tarik kode terbaru dari GitHub
             git pull origin main
