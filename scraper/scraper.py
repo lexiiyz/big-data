@@ -143,7 +143,17 @@ async def run_scraper(query: str, max_tweets: int):
 
 @app.post("/api/scrape")
 async def trigger_scrape(request: ScrapeRequest, background_tasks: BackgroundTasks):
-    background_tasks.add_task(run_scraper, request.query, request.max_tweets)
+    async def bg_wrapper():
+        print(f"MULAI BACKGROUND TASK: {request.query}")
+        try:
+            await run_scraper(request.query, request.max_tweets)
+            print("BACKGROUND TASK SELESAI!")
+        except Exception as e:
+            import traceback
+            print("❌ BACKGROUND TASK GAGAL! Ini alasan teknisnya:")
+            print(traceback.format_exc())
+
+    background_tasks.add_task(bg_wrapper)
     return {
         "status": "success", 
         "message": f"Mulai scraping otomatis untuk '{request.query}'. Data akan masuk ke MongoDB."

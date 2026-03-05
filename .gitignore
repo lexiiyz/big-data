@@ -25,3 +25,9 @@ data/
 
 # Docker environments
 .docker-compose.yml.*
+
+# Sensitive Chrome Profile and State
+scraper/chrome-profile/
+scraper/state.json
+scraper/generate_state.py
+scraper/clean_profile.py
