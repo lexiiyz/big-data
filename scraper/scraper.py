@@ -96,28 +96,31 @@ async def scrape_x_topic(page, query, max_tweets=50):
 async def run_scraper(query: str, max_tweets: int):
     async with async_playwright() as p:
         try:
-            # Kita arahkan Playwright ke folder "chrome-profile" yang berisi cookies/login asli
-            profile_dir = "/app/chrome-profile"
+            state_file = "/app/state.json"
             
-            # Cek apakah folder profil ada di dalam Docker
-            if not os.path.exists(profile_dir):
-                print(f"Error: Folder profil {profile_dir} tidak ditemukan! Pastikan sudah mount folder 'chrome-profile'.")
+            # Cek apakah file sesi login ada
+            if not os.path.exists(state_file):
+                print(f"Error: File {state_file} tidak ditemukan! Harap upload state.json yang valid ke VPS.")
                 return 0
 
-            print(f"Menjalankan browser chrome mode headless menggunakan User Data Dir: {profile_dir}...")
+            print("Menjalankan browser chrome mode headless menggunakan state.json...")
             
-            # Kita launch secara "persistent context" agar cookies otomatis terbaca dan tersimpan tiap buka
-            context = await p.chromium.launch_persistent_context(
-                user_data_dir=profile_dir,
+            # Launch browser biasa (bukan persistent context) dengan anti-bot args
+            browser = await p.chromium.launch(
                 headless=True,
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                viewport={"width": 1920, "height": 1080},
                 args=[
                     '--no-sandbox', 
                     '--disable-setuid-sandbox', 
                     '--disable-dev-shm-usage',
                     '--disable-blink-features=AutomationControlled'
                 ]
+            )
+            
+            # Buat context baru dan INJEKSI state.json + user agent
+            context = await browser.new_context(
+                storage_state=state_file,
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                viewport={"width": 1920, "height": 1080}
             )
             
             page = await context.new_page()
