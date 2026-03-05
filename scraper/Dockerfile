@@ -14,4 +14,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Command default dibungkus xvfb-run agar seakan berjalan di layar desktop
-CMD ["xvfb-run", "-a", "uvicorn", "scraper:app", "--host", "0.0.0.0", "--port", "5000", "--reload"]
+# Gunakan format shell (tanpa kurung siku) agar xvfb bisa menangkap environment variables dengan benar
+CMD xvfb-run -a uvicorn scraper:app --host 0.0.0.0 --port 5000 --reload
