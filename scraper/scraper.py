@@ -32,7 +32,15 @@ async def scrape_x_topic(page, query, max_tweets=50):
     seen_tweets = set()
     
     while len(tweets_data) < max_tweets:
-        tweets = await page.query_selector_all('[data-testid="tweet"]')
+        try:
+            # Re-render oleh Twitter JavaScript bisa ngebuat handle yang lama jadi invalid
+            tweets = await page.query_selector_all('[data-testid="tweet"]')
+        except Exception as e:
+            # Tunggu 1 detik biar halamannya stabil, lalu coba cari lagi
+            print(f"DOM belum stabil, mencoba ulang... {e}")
+            await page.wait_for_timeout(1000)
+            continue
+            
         for tweet in tweets:
             try:
                 text_content = ""
