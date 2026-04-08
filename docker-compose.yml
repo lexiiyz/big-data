@@ -18,10 +18,11 @@ services:
     ports:
       - "27017:27017"
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-bigdata123}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
     volumes:
       - mongo_data:/data/db
+    mem_limit: 256m
     networks:
       - bigdata_net
 
@@ -30,11 +31,12 @@ services:
     image: postgres:15
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bigdata123}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: sentiment_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    mem_limit: 256m
     networks:
       - bigdata_net
 
@@ -43,20 +45,25 @@ services:
     image: docker.n8n.io/n8nio/n8n
     restart: unless-stopped
     ports:
-      - "5679:5678"
+      - "5678:5678"
     environment:
-      - N8N_HOST=localhost
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=http
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PORT=${N8N_PORT:-5678}
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
+      - N8N_SECURE_COOKIE=${N8N_SECURE_COOKIE:-true}
+      - N8N_EDITOR_BASE_URL=${N8N_PROTOCOL:-http}://${N8N_HOST:-localhost}:${N8N_PORT:-5678}/
+      - WEBHOOK_URL=${N8N_PROTOCOL:-http}://${N8N_HOST:-localhost}:${N8N_PORT:-5678}/
       - NODE_ENV=production
       - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=postgres
       - DB_POSTGRESDB_PORT=5432
       - DB_POSTGRESDB_DATABASE=sentiment_db
-      - DB_POSTGRESDB_USER=${POSTGRES_USER:-admin}
-      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-bigdata123}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
+      - GROQ_API_KEY=${GROQ_API_KEY}
     volumes:
       - n8n_data:/home/node/.n8n
+    mem_limit: 256m
     networks:
       - bigdata_net
     depends_on:
@@ -70,13 +77,15 @@ services:
       - "3000:3000"
     environment:
       MB_DB_TYPE: postgres
-      MB_DB_DBNAME: sentiment_db
+      MB_DB_DBNAME: metabase_db
       MB_DB_PORT: 5432
-      MB_DB_USER: ${POSTGRES_USER:-admin}
-      MB_DB_PASS: ${POSTGRES_PASSWORD:-bigdata123}
+      MB_DB_USER: ${POSTGRES_USER}
+      MB_DB_PASS: ${POSTGRES_PASSWORD}
       MB_DB_HOST: postgres
+      JAVA_OPTS: "-Xmx512m -Xms256m"
     volumes:
       - metabase_data:/metabase.db
+    mem_limit: 768m
     networks:
       - bigdata_net
     depends_on:
@@ -88,9 +97,11 @@ services:
     restart: unless-stopped
     ports:
       - "5000:5000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       CDP_URL: "http://host.docker.internal:9222"
-      MONGO_URI: "mongodb://${MONGO_USER:-root}:${MONGO_PASSWORD:-bigdata123}@mongodb:27017"
+      MONGO_URI: "mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017"
     volumes:
       - ./scraper:/app
     networks:
@@ -105,12 +116,37 @@ services:
     ports:
       - "8081:8081"
     environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_USER:-root}
-      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_PASSWORD:-bigdata123}
-      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_USER:-root}:${MONGO_PASSWORD:-bigdata123}@mongodb:27017/
-      ME_CONFIG_BASICAUTH_USERNAME: ${ME_USER:-user}
-      ME_CONFIG_BASICAUTH_PASSWORD: ${ME_PASSWORD:-password}
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_USER}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_PASSWORD}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017/
+      ME_CONFIG_BASICAUTH_USERNAME: ${ME_USER}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${ME_PASSWORD}
     networks:
       - bigdata_net
     depends_on:
       - mongodb
+
+  # 7. PostgreSQL GUI
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    depends_on:
+      - postgres
+    networks:
+      - bigdata_net
+
+  # 8. Static Web Server untuk serve gambar dll
+  static_server:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./public:/usr/share/nginx/html:ro
+    networks:
+      - bigdata_net

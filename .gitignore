@@ -28,6 +28,7 @@ data/
 
 # Sensitive Chrome Profile and State
 scraper/chrome-profile/
+scraper/temp_profile/
 scraper/state.json
 scraper/generate_state.py
 scraper/clean_profile.py

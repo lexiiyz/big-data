@@ -2,6 +2,7 @@ import asyncio
 import os
 import json
 import urllib.request
+import urllib.parse
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
@@ -13,39 +14,39 @@ app = FastAPI(title="Twitter Scraper API")
 class ScrapeRequest(BaseModel):
     query: str
     max_tweets: int = 30
+    topic: str = None
+    lang: str = None
 
 async def scrape_x_topic(page, query, max_tweets=50):
-    print(f"Navigasi ke pencarian X untuk: {query}")
-    encoded_query = query.replace(" ", "%20")
-    await page.goto(f"https://x.com/search?q={encoded_query}&src=typed_query")
+    print(f"Searching Twitter For: {query}")
+    encoded_query = urllib.parse.quote(query, safe='()')
+    await page.goto(f"https://x.com/search?q={encoded_query}")
     
-    print("Menunggu tweet load... (Tarik napas panjang, di VPS headless bisa makan waktu lebih lama)")
+    print("Tweet Load")
     try:
-        # Tambah timeout batas kesabaran dari 15 detik jadi 60 detik
         await page.wait_for_selector('[data-testid="tweet"]', timeout=60000)
     except Exception as e:
-        print(f"Gagal memuat tweet. Timeout: {e}")
+        print(f"Failed to load tweet. Timeout: {e}")
         try:
             current_url = page.url
             page_title = await page.title()
-            print(f"URL Terakhir: {current_url}")
-            print(f"Judul Halaman: {page_title}")
-            print("Menyimpan screenshot layar ke /app/error.png (tanpa full_page)...")
-            await page.screenshot(path="/app/error.png")
+            print(f"URL: {current_url}")
+            print(f"Title: {page_title}")
         except Exception as inner_e:
-            print(f"Gagal mengambil screenshot tambahan: {inner_e}")
+            print(f"Error: {inner_e}")
         return []
 
     tweets_data = []
     seen_tweets = set()
     
+    last_count = 0
+    stuck_attempts = 0
+    
     while len(tweets_data) < max_tweets:
         try:
-            # Re-render oleh Twitter JavaScript bisa ngebuat handle yang lama jadi invalid
             tweets = await page.query_selector_all('[data-testid="tweet"]')
         except Exception as e:
-            # Tunggu 1 detik biar halamannya stabil, lalu coba cari lagi
-            print(f"DOM belum stabil, mencoba ulang... {e}")
+            print(f"DOM not stable, retrying... {e}")
             await page.wait_for_timeout(1000)
             continue
             
@@ -92,7 +93,7 @@ async def scrape_x_topic(page, query, max_tweets=50):
                     "timestamp": timestamp,
                     "likes": likes,
                     "text": text_content,
-                    "query_topic": query # Tambahan untuk nandain ini hasil query apa
+                    "query_topic": query 
                 }
                 
                 if text_content: 
@@ -104,45 +105,59 @@ async def scrape_x_topic(page, query, max_tweets=50):
             except Exception:
                 continue
 
-        if len(tweets_data) < max_tweets:
-            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await page.wait_for_timeout(2000)
+        if len(tweets_data) == last_count:
+            stuck_attempts += 1
+            if stuck_attempts >= 10:
+                print(f"Stuck! No new tweet after {stuck_attempts} scroll. Done.")
+                break
+        else:
+            stuck_attempts = 0
         
+        last_count = len(tweets_data)
+
+        if len(tweets_data) < max_tweets:
+            print(f"Scrolling for more tweets... (Got {len(tweets_data)})")
+            for _ in range(5):
+                await page.mouse.wheel(0, 1000)
+                await page.wait_for_timeout(500)
+            await page.wait_for_timeout(1000) 
+        
+    print(f"Done. Total: {len(tweets_data)} tweets.")
     return tweets_data
 
-async def run_scraper(query: str, max_tweets: int):
+async def run_scraper(query: str, max_tweets: int, topic: str = None, lang: str = None):
+    final_query = query
+    if lang:
+        final_query = f"{query} lang:{lang}"
+        
     async with async_playwright() as p:
         try:
-            state_file = "/app/state.json"
-            
-            # Cek apakah file sesi login ada
-            if not os.path.exists(state_file):
-                print(f"Error: File {state_file} tidak ditemukan! Harap upload state.json yang valid ke VPS.")
-                return 0
+            base_cdp_url = os.getenv("CDP_URL", "http://localhost:9222")
+            print(f"Getting WebSocket URL from {base_cdp_url}...")
 
-            print("Menjalankan browser chrome mode headless menggunakan state.json...")
-            
-            # Launch browser biasa (bukan persistent context) dengan anti-bot args
-            browser = await p.chromium.launch(
-                headless=False,
-                args=[
-                    '--no-sandbox', 
-                    '--disable-setuid-sandbox', 
-                    '--disable-dev-shm-usage',
-                    '--disable-blink-features=AutomationControlled'
-                ]
-            )
-            
-            # Buat context baru dan INJEKSI state.json + user agent
-            context = await browser.new_context(
-                storage_state=state_file,
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                viewport={"width": 1920, "height": 1080}
-            )
-            
+            req = urllib.request.Request(f"{base_cdp_url}/json/version")
+            req.add_header("Host", "localhost:9222")
+            try:
+                with urllib.request.urlopen(req) as response:
+                    data = json.loads(response.read().decode())
+                    ws_url = data.get("webSocketDebuggerUrl")
+                    if ws_url:
+                        ws_url = ws_url.replace("localhost", "host.docker.internal").replace("127.0.0.1", "host.docker.internal")
+                        cdp_url = ws_url
+                    else:
+                        cdp_url = base_cdp_url
+            except Exception as e:
+                print(f"Warning resolve json/version: {e}")
+                cdp_url = base_cdp_url
+
+            print(f"Connecting via CDP websocket: {cdp_url}")
+            browser = await p.chromium.connect_over_cdp(cdp_url)
+            context = browser.contexts[0] if browser.contexts else await browser.new_context()
             page = await context.new_page()
 
-            hasil_scrape = await scrape_x_topic(page, query, max_tweets=max_tweets)
+            hasil_scrape = await scrape_x_topic(page, final_query, max_tweets=max_tweets)
+            
+            display_topic = topic if topic else query
             
             mongo_uri = os.getenv("MONGO_URI")
             if mongo_uri and hasil_scrape:
@@ -150,9 +165,10 @@ async def run_scraper(query: str, max_tweets: int):
                 db = client["sentiment_db"]
                 collection = db["tweets"]
                 
-                # Menggunakan upsert untuk menghindari duplikasi data berdasarkan teks tweet
                 inserted_count = 0
                 for tweet in hasil_scrape:
+                    tweet["query_topic"] = display_topic
+                    
                     result = collection.update_one(
                         {"text": tweet["text"]}, 
                         {"$set": tweet}, 
@@ -161,30 +177,36 @@ async def run_scraper(query: str, max_tweets: int):
                     if result.upserted_id:
                         inserted_count += 1
                         
-                print(f"Berhasil menyimpan {inserted_count} tweet baru ke MongoDB (dari {len(hasil_scrape)} yang di-scrape)!")
+                print(f"Success save {inserted_count} new tweet to MongoDB (Topic: {display_topic})!")
                 
             return len(hasil_scrape)
             
         except Exception as e:
             print(f"Scraper Error: {e}")
             raise e
+        
+        finally:
+           if 'page' in locals():
+                await page.close()
+           if 'browser' in locals():
+                await browser.close()
 
 @app.post("/api/scrape")
 async def trigger_scrape(request: ScrapeRequest, background_tasks: BackgroundTasks):
     async def bg_wrapper():
-        print(f"MULAI BACKGROUND TASK: {request.query}")
+        print(f"Start Task: {request.topic if request.topic else request.query}")
         try:
-            await run_scraper(request.query, request.max_tweets)
-            print("BACKGROUND TASK SELESAI!")
+            await run_scraper(request.query, request.max_tweets, request.topic, request.lang)
+            print("Success")
         except Exception as e:
             import traceback
-            print("❌ BACKGROUND TASK GAGAL! Ini alasan teknisnya:")
+            print("Failed, Error:")
             print(traceback.format_exc())
 
     background_tasks.add_task(bg_wrapper)
     return {
         "status": "success", 
-        "message": f"Mulai scraping otomatis untuk '{request.query}'. Data akan masuk ke MongoDB."
+        "message": f"Start Scrape for: '{request.topic if request.topic else request.query}'."
     }
 
 @app.get("/health")
