@@ -22,7 +22,8 @@ Proyek ini membangun sebuah pipeline data end-to-end yang terdiri dari:
 Twitter/X ──────────┐
                     ▼
 Radar Semarang ──► Scraper API (FastAPI + Playwright)
-                    │
+                    │                    │
+                    │                    └──► Telegram Notifier
                     ▼
               MongoDB (Data Lake)
                     │
@@ -39,9 +40,11 @@ Radar Semarang ──► Scraper API (FastAPI + Playwright)
                     │
                     ▼
               Metabase Dashboard
-                    │
-                    ▼
-         WhatsApp Notification (WAHA)
+
+WhatsApp (WAHA) ──► Chatbot AI (n8n + Groq)
+                         │
+                    Query Sentimen & Berita
+                    dari PostgreSQL
 ```
 
 ---
@@ -56,7 +59,8 @@ Radar Semarang ──► Scraper API (FastAPI + Playwright)
 | Orchestration | n8n | Automasi pipeline & penjadwalan |
 | AI Analysis | Groq (LLaMA) | Analisis sentimen & klasifikasi berita |
 | Visualisasi | Metabase | Dashboard & peta interaktif |
-| WhatsApp API | WAHA | Notifikasi hasil analisis |
+| WhatsApp API | WAHA | Chatbot WhatsApp interaktif |
+| Notifikasi | Telegram | Notifikasi hasil scraping |
 | Deployment | Docker Compose + GitHub Actions | CI/CD ke VPS IDCloudHost |
 | Map Geocoding | Nominatim (OpenStreetMap) | Konversi nama lokasi ke koordinat |
 
@@ -93,12 +97,12 @@ n8n workflow **News Analyze and Classification** berjalan terjadwal:
 ## n8n Workflows
 
 ### Chatbot (WhatsApp AI Assistant)
-Chatbot WhatsApp berbasis AI yang menjawab pertanyaan pengguna menggunakan data dari database (Twitter & berita). Menggunakan dua AI Agent — satu untuk query Twitter, satu untuk query berita.
+Chatbot WhatsApp berbasis AI yang menjawab pertanyaan pengguna menggunakan data dari database (tweet sentimen & berita). AI Agent pertama menangani kedua jenis query (sentimen & berita). AI Agent kedua berfungsi sebagai fallback error handling apabila Agent pertama terkena rate limit LLM.
 
 ![Chatbot Workflow](docs/workflow-chatbot.png)
 
 ### Scrapper
-Workflow terjadwal untuk memicu scraping Twitter/X dan Radar Semarang secara periodik, dengan notifikasi Telegram setelah selesai.
+Workflow terjadwal untuk memicu scraping Twitter/X dan Radar Semarang secara periodik. Setelah scraping selesai, notifikasi dikirim via **Telegram**.
 
 ![Scrapper Workflow](docs/workflow-scrapper.png)
 
@@ -118,23 +122,21 @@ Pipeline klasifikasi berita, ekstraksi lokasi, geocoding via Nominatim, dan peny
 
 ### Analisis Sentimen Tweet
 
-Dashboard Metabase menampilkan distribusi sentimen dari **1.323 tweet** yang dikumpulkan:
-
-| Sentimen | Jumlah | Persentase |
-|---|---|---|
-| Negatif | ~620 | 46.9% |
-| Positif | ~456 | 34.5% |
-| Netral | ~247 | 18.6% |
-
-Breakdown sentimen per kategori (Fasilitas Umum vs Transportasi Umum) tersedia dalam bar chart.
+Dashboard Metabase menampilkan distribusi sentimen tweet yang dikumpulkan (Negatif / Positif / Netral), dibreakdown per kategori utama: Fasilitas Umum (Fasum) dan Transportasi Umum (Transum).
 
 ![Sentiment Dashboard](docs/dashboard-sentiment.png)
 
 ### Analisis Berita & Peta Lokasi
 
-Dashboard peta interaktif menampilkan lokasi kejadian (Kecelakaan, Banjir, Longsor) di wilayah Semarang, dengan total **61 artikel** yang terpetakan beserta statistik jumlah artikel per kategori.
+Dashboard peta interaktif menampilkan lokasi kejadian (Kecelakaan, Banjir, Longsor) di wilayah Semarang beserta jumlah artikel per kategori.
 
 ![News Dashboard](docs/dashboard-news.png)
+
+### Chatbot WhatsApp
+
+Pengguna dapat mengirim pertanyaan ke WhatsApp dan mendapatkan jawaban berdasarkan data sentimen tweet maupun berita terbaru dari database.
+
+![Chatbot Answer](docs/chatbot-answer.png)
 
 ---
 
