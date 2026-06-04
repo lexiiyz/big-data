@@ -56,7 +56,7 @@ WhatsApp (WAHA) ──► Chatbot AI (n8n + Groq)
 | Data Lake | MongoDB | Penyimpanan data mentah (tweet & berita) |
 | Data Warehouse | PostgreSQL | Penyimpanan hasil analisis terstruktur |
 | Orchestration | n8n | Automasi pipeline & penjadwalan |
-| AI Analysis | Groq (LLaMA) | Analisis sentimen & klasifikasi berita |
+| AI Analysis | Groq (GPT) | Analisis sentimen & klasifikasi berita |
 | Visualisasi | Metabase | Dashboard & peta interaktif |
 | WhatsApp API | WAHA | Chatbot WhatsApp interaktif |
 | Notifikasi | Telegram | Notifikasi hasil scraping |
