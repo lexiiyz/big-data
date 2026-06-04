@@ -21,9 +21,8 @@ Proyek ini membangun sebuah pipeline data end-to-end yang terdiri dari:
 ```
 Twitter/X ──────────┐
                     ▼
-Radar Semarang ──► Scraper API (FastAPI + Playwright)
-                    │                    │
-                    │                    └──► Telegram Notifier
+Radar Semarang ──► Scraper API (FastAPI + Playwright) ──► Telegram Notifier
+                    │
                     ▼
               MongoDB (Data Lake)
                     │
@@ -31,8 +30,8 @@ Radar Semarang ──► Scraper API (FastAPI + Playwright)
             n8n Automation Engine
            ┌────────┴────────┐
            ▼                 ▼
-    Sentiment Analysis  News Analysis &
-    (Groq LLM)          Classification (Groq LLM)
+    Sentiment Analysis  News Analysis &        ──► Telegram Notifier
+    (Groq LLM)          Classification (Groq)      (mulai & selesai)
            │                 │
            └────────┬────────┘
                     ▼
@@ -61,7 +60,7 @@ WhatsApp (WAHA) ──► Chatbot AI (n8n + Groq)
 | Visualisasi | Metabase | Dashboard & peta interaktif |
 | WhatsApp API | WAHA | Chatbot WhatsApp interaktif |
 | Notifikasi | Telegram | Notifikasi hasil scraping |
-| Deployment | Docker Compose + GitHub Actions | CI/CD ke VPS IDCloudHost |
+| Deployment | Docker Compose | Menjalankan seluruh layanan |
 | Map Geocoding | Nominatim (OpenStreetMap) | Konversi nama lokasi ke koordinat |
 
 ---
@@ -78,19 +77,22 @@ n8n menjalankan dua workflow terjadwal:
 ### 2. Analisis Sentimen (Tweet)
 
 n8n workflow **Sentimen Analysis** berjalan terjadwal:
-1. Ambil tweet dari MongoDB yang belum dianalisis
-2. Loop setiap tweet → AI Agent (Groq) mengklasifikasikan sentimen: **Positif / Negatif / Netral**
-3. Hasil di-upsert ke tabel `tweets` di PostgreSQL
-4. Notifikasi progres dikirim via WhatsApp
+1. Notifikasi Telegram dikirim saat proses dimulai
+2. Ambil tweet dari MongoDB yang belum dianalisis
+3. Loop setiap tweet → AI Agent (Groq) mengklasifikasikan sentimen: **Positif / Negatif / Netral**
+4. Hasil di-upsert ke tabel `tweets` di PostgreSQL
+5. Notifikasi Telegram dikirim saat proses selesai
 
 ### 3. Analisis & Klasifikasi Berita
 
 n8n workflow **News Analyze and Classification** berjalan terjadwal:
-1. Ambil artikel berita dari MongoDB yang belum diproses
-2. Loop setiap artikel → AI Agent mengklasifikasikan kategori (Banjir, Kecelakaan, Longsor, dll) dan mengekstrak nama lokasi
-3. Nominatim API mengkonversi nama lokasi → koordinat (lat/lon)
-4. Data diinsert ke tabel `news` di PostgreSQL dengan koordinat lokasi
-5. MongoDB diupdate status `processed = true`
+1. Notifikasi Telegram dikirim saat proses dimulai
+2. Ambil artikel berita dari MongoDB yang belum diproses
+3. Loop setiap artikel → AI Agent mengklasifikasikan kategori (Banjir, Kecelakaan, Longsor, dll) dan mengekstrak nama lokasi
+4. Nominatim API mengkonversi nama lokasi → koordinat (lat/lon)
+5. Data diinsert ke tabel `news` di PostgreSQL dengan koordinat lokasi
+6. MongoDB diupdate status `processed = true`
+7. Notifikasi Telegram dikirim saat proses selesai
 
 ---
 
@@ -107,12 +109,12 @@ Workflow terjadwal untuk memicu scraping Twitter/X dan Radar Semarang secara per
 ![Scrapper Workflow](docs/workflow-scrapper.png)
 
 ### Sentimen Analysis
-Pipeline analisis sentimen tweet dengan Groq LLM. Setiap tweet diloop, dianalisis, lalu di-upsert ke PostgreSQL.
+Pipeline analisis sentimen tweet dengan Groq LLM. Setiap tweet diloop, dianalisis, lalu di-upsert ke PostgreSQL. Notifikasi Telegram dikirim saat proses mulai dan selesai.
 
 ![Sentimen Analysis Workflow](docs/workflow-sentiment.png)
 
 ### News Analyze and Classification
-Pipeline klasifikasi berita, ekstraksi lokasi, geocoding via Nominatim, dan penyimpanan ke PostgreSQL.
+Pipeline klasifikasi berita, ekstraksi lokasi, geocoding via Nominatim, dan penyimpanan ke PostgreSQL. Notifikasi Telegram dikirim saat proses mulai dan selesai.
 
 ![News Analysis Workflow](docs/workflow-news.png)
 
@@ -144,9 +146,6 @@ Pengguna dapat mengirim pertanyaan ke WhatsApp dan mendapatkan jawaban berdasark
 
 ```
 big-data/
-├── .github/
-│   └── workflows/
-│       └── deploy.yml          # CI/CD GitHub Actions → VPS
 ├── scraper/
 │   ├── main.py                 # FastAPI app + endpoint scraper
 │   ├── scraper.py              # Logic scraping Twitter/X (Playwright)
@@ -181,7 +180,7 @@ big-data/
 
 ## Deployment
 
-Project di-deploy ke VPS IDCloudHost menggunakan Docker Compose. Setiap push ke branch `main` otomatis men-trigger deploy via GitHub Actions.
+Project dijalankan menggunakan Docker Compose.
 
 ```bash
 # Clone repo
@@ -232,10 +231,9 @@ docker compose ps
 ```json
 POST /api/twitter/scrape
 {
-  "query": "fasilitas umum semarang",
-  "max_tweets": 50,
-  "topic": "Fasum",
-  "lang": "id"
+  "topic": "Analisa Transum & Fasum Indonesia",
+  "query": "(\"transum\" OR \"transportasi umum\" OR \"fasilitas publik\" OR \"fasilitas umum\") (angkot OR busway OR krl OR mrt OR halte OR stasiun OR trotoar)",
+  "max_tweets": 50
 }
 ```
 
@@ -245,6 +243,6 @@ POST /api/twitter/scrape
 POST /api/news/scrape-auto
 {
   "queries": ["Kecelakaan", "Banjir"],
-  "max_pages": 3
+  "max_pages": 5
 }
 ```

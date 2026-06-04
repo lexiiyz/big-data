@@ -1,15 +1,37 @@
-# Twitter scraper logic — digunakan oleh main.py
-# File ini tidak dijalankan langsung.
-
 import asyncio
 import os
 import json
 import socket
 import urllib.request
 import urllib.parse
+from datetime import datetime
+from fastapi import FastAPI, BackgroundTasks
+from pydantic import BaseModel
 from pymongo import MongoClient
 from playwright.async_api import async_playwright
 
+app = FastAPI(title="Scraper API", description="Twitter & Radar Semarang News Scraper")
+
+
+# =============================================================================
+# MODELS
+# =============================================================================
+
+class TwitterScrapeRequest(BaseModel):
+    query: str
+    max_tweets: int = 30
+    topic: str = None
+    lang: str = None
+
+class NewsScrapeRequest(BaseModel):
+    queries: list[str] | None = None        # Search queries, default: semua keyword
+    kategori_urls: list[str] | None = None  # URL kategori custom, default: semua
+    max_pages: int = 3                      # Maks halaman per sumber
+
+
+# =============================================================================
+# TWITTER SCRAPER LOGIC
+# =============================================================================
 
 async def scrape_x_topic(page, query, max_tweets=50):
     print(f"Searching Twitter For: {query}")
@@ -184,3 +206,70 @@ async def run_twitter_scraper(query: str, max_tweets: int, topic: str = None, la
         finally:
             if page: await page.close()
             if browser: await browser.close()
+
+
+# =============================================================================
+# RADAR SEMARANG NEWS SCRAPER LOGIC
+# =============================================================================
+
+from scraper_news import run_radar_scraper
+
+
+# =============================================================================
+# ENDPOINTS
+# =============================================================================
+
+# --- Twitter ---
+
+@app.post("/api/twitter/scrape")
+async def trigger_twitter_scrape(request: TwitterScrapeRequest, background_tasks: BackgroundTasks):
+    async def bg_wrapper():
+        print(f"Start Task: {request.topic if request.topic else request.query}")
+        try:
+            await run_twitter_scraper(request.query, request.max_tweets, request.topic, request.lang)
+            print("Success")
+        except Exception:
+            import traceback
+            print("Failed, Error:")
+            print(traceback.format_exc())
+
+    background_tasks.add_task(bg_wrapper)
+    return {
+        "status": "success",
+        "message": f"Start Scrape for: '{request.topic if request.topic else request.query}'."
+    }
+
+
+# --- Radar Semarang News ---
+
+@app.post("/api/news/scrape-auto")
+async def trigger_news_scrape_auto(request: NewsScrapeRequest, background_tasks: BackgroundTasks):
+    """
+    Scrape otomatis Radar Semarang dari search queries dan kategori.
+    
+    Body (semua opsional):
+    - queries: list keyword search, default semua (Kecelakaan, Banjir, Gempa, Kebakaran)
+    - kategori_urls: list URL kategori custom
+    - max_pages: maks halaman per sumber (default 3)
+    """
+    async def bg_wrapper():
+        print("Memulai Auto-Scrape Radar Semarang...")
+        try:
+            await run_radar_scraper(
+                queries=request.queries,
+                kategori_urls=request.kategori_urls,
+                max_pages=request.max_pages,
+            )
+        except Exception:
+            import traceback
+            print(traceback.format_exc())
+
+    background_tasks.add_task(bg_wrapper)
+    return {"status": "success", "message": "Scraper Radar Semarang mulai bekerja di background!"}
+
+
+# --- Health Check ---
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "service": "scraper_api"}

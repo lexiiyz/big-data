@@ -5,6 +5,7 @@ volumes:
   postgres_data:
   n8n_data:
   metabase_data:
+  waha_data:
 
 networks:
   bigdata_net:
@@ -26,7 +27,7 @@ services:
     networks:
       - bigdata_net
 
-  # 2. Data Warehouse (Structured Storage - Untuk Nanti)
+  # 2. Data Warehouse (Structured Storage)
   postgres:
     image: postgres:15
     restart: unless-stopped
@@ -36,9 +37,16 @@ services:
       POSTGRES_DB: sentiment_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
     mem_limit: 256m
     networks:
       - bigdata_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d sentiment_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   # 3. Automation Engine (The Orchestrator)
   n8n:
@@ -67,7 +75,8 @@ services:
     networks:
       - bigdata_net
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
   # 4. Visualization
   metabase:
@@ -89,10 +98,11 @@ services:
     networks:
       - bigdata_net
     depends_on:
-      - postgres
-    
-  # 5. Twitter Scraper Microservice
-  twitter_scraper:
+      postgres:
+        condition: service_healthy
+
+  # 5. Scraper Microservice (Twitter + Kompas News)
+  scraper:
     build: ./scraper
     restart: unless-stopped
     ports:
@@ -101,7 +111,7 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       CDP_URL: "http://host.docker.internal:9222"
-      MONGO_URI: "mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017"
+      MONGO_URI: "mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb:27017/?authSource=admin"
     volumes:
       - ./scraper:/app
     networks:
@@ -111,7 +121,7 @@ services:
 
   # 6. MongoDB GUI
   mongo-express:
-    image: mongo-express:latest
+    image: mongo-express:1.0
     restart: unless-stopped
     ports:
       - "8081:8081"
@@ -128,7 +138,7 @@ services:
 
   # 7. PostgreSQL GUI
   pgadmin:
-    image: dpage/pgadmin4:latest
+    image: dpage/pgadmin4:8
     restart: unless-stopped
     ports:
       - "5050:80"
@@ -136,17 +146,35 @@ services:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - bigdata_net
 
-  # 8. Static Web Server untuk serve gambar dll
+  # 8. Static Web Server
   static_server:
-    image: nginx:alpine
+    image: nginx:1-alpine
     restart: unless-stopped
     ports:
       - "8080:80"
     volumes:
       - ./public:/usr/share/nginx/html:ro
+    networks:
+      - bigdata_net
+
+  # 9. WAHA (WhatsApp HTTP API)
+  waha:
+    image: devlikeapro/waha
+    container_name: waha_bigdata
+    restart: always
+    ports:
+      - "3003:3000"
+    environment:
+      - WHATSAPP_DEFAULT_ENGINE=WEBJS
+      - WAHA_API_KEY=${WAHA_API_KEY}
+      - WAHA_DASHBOARD_USERNAME=${WAHA_DASHBOARD_USERNAME}
+      - WAHA_DASHBOARD_PASSWORD=${WAHA_DASHBOARD_PASSWORD}
+    volumes:
+      - waha_data:/app/.waha
     networks:
       - bigdata_net
