@@ -1,0 +1,504 @@
+{
+  "name": "Sentimen Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -400,
+        -144
+      ],
+      "id": "85f62ace-b3ce-4435-8f72-4436cb7cf7eb",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "collection": "tweets",
+        "options": {
+          "limit": 5
+        },
+        "query": "{\n  \"sentiment_analyzed\": { \"$ne\": true }\n}"
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        -160,
+        -144
+      ],
+      "id": "1303b2a2-5805-4755-a8f1-bd1a3d5a6c53",
+      "name": "Find documents",
+      "credentials": {
+        "mongoDb": {
+          "id": "HWEomZvJtq2clqyM",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -288,
+        144
+      ],
+      "id": "e76c06af-3d90-4223-bbaf-a986f2805d5f",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Find documents').item.json.text }}",
+        "options": {
+          "systemMessage": "=Kamu adalah sistem AI ahli bahasa Indonesia spesialis analisis data media sosial. Tugasmu adalah menganalisis cuitan (tweet) pengguna dan mengembalikan hasilnya MURNI HANYA dalam format JSON yang valid, tanpa teks pengantar, format markdown, atau penutup apa pun.\n\nTeks: {{ $json.text }}\n\nATURAN ANALISIS (HIERARKIS):\n1. FILTER RELEVANSI: Periksa apakah teks BENAR-BENAR membahas transportasi umum atau fasilitas publik. Jika teks tidak relevan, maka sentimen WAJIB diisi \"Irrelevan\".\n\n2. KATEGORISASI LEVEL 1 (UTAMA):\n   Tentukan apakah fokus teks lebih ke armada/kendaraannya atau ke infrastrukturnya:\n   - Pilih \"Transum\" jika teks membahas kendaraan/layanan (KRL, MRT, Busway, Angkot, dll).\n   - Pilih \"Fasum\" jika teks membahas infrastruktur (Halte, Stasiun, Trotoar, JPO, dll).\n   - Pilih \"Lainnya\" jika teks tidak relevan.\n\n3. KATEGORISASI LEVEL 2 (SPESIFIK):\n   Berdasarkan pilihan Level 1, tentukan entitas spesifiknya.\n   - Jika Transum: pilih salah satu (KRL, MRT, Bus, Angkot, Lainnya).\n   - Jika Fasum: pilih salah satu (Halte, Stasiun, Trotoar, JPO, Lainnya).\n   - Jika tidak relevan, isi \"Lainnya\".\n\n4. SENTIMEN: Jika teks relevan, tentukan sentimennya (Positif / Negatif / Netral).\n\nSTRUKTUR JSON YANG DIWAJIBKAN:\n{\n  \"sentimen\": \"Positif\" | \"Negatif\" | \"Netral\" | \"Irrelevan\",\n  \"kategori_utama\": \"Transum\" | \"Fasum\" | \"Lainnya\",\n  \"kategori_spesifik\": \"KRL\" | \"MRT\" | \"Bus\" | \"Angkot\" | \"Halte\" | \"Stasiun\" | \"Trotoar\" | \"JPO\" | \"Lainnya\",\n  \"alasan\": \"Penjelasan logis maksimal 1 kalimat.\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        80,
+        272
+      ],
+      "id": "15878028-0c5b-40bd-a228-1114e3834e52",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "chatId": "1348990681",
+        "text": "=Analisis Sentimen Dimulai, jumlah data : {{ $input.all().length }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        128,
+        -144
+      ],
+      "id": "55fc8a5c-01d8-40a6-ae82-44c65537b7e6",
+      "name": "Send a text message",
+      "webhookId": "aa10d270-2892-461e-a5f0-6d074399f630",
+      "executeOnce": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "LGBaxsitHR55688Z",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        16,
+        512
+      ],
+      "id": "f63f4a39-97d0-49ed-af8f-681426e31bff",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "7fAlLeWH3AxCtk3E",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const llmResult = JSON.parse($input.first().json.output);\nconst originalTweet = $('Find documents').item.json; \n\nreturn {\n  mongodb_id: originalTweet._id,\n  tweet_user: originalTweet.user,\n  tweet_text: originalTweet.text,\n  query_topic: llmResult.kategori_spesifik, \n  kategori_utama: llmResult.kategori_utama,\n  sentiment: llmResult.sentimen,\n  reason: llmResult.alasan,\n  tweet_posted_at: originalTweet.timestamp\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        144
+      ],
+      "id": "5c9da507-bbd6-4b2e-b2c6-89342c2d5a83",
+      "name": "merge_data"
+    },
+    {
+      "parameters": {
+        "chatId": "1348990681",
+        "text": "=Proses Selesai",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        128,
+        64
+      ],
+      "id": "0b80a9d7-987e-427d-95c3-d78803c6f19f",
+      "name": "Send a text message1",
+      "webhookId": "422a536d-d633-406f-a293-3fee6dda6f69",
+      "executeOnce": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "LGBaxsitHR55688Z",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "collection": "tweets",
+        "updateKey": "_id",
+        "fields": "=sentiment_analyzed",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        1280,
+        256
+      ],
+      "id": "c4833f22-5d7f-461a-ab26-b5fe4c711886",
+      "name": "Update documents",
+      "credentials": {
+        "mongoDb": {
+          "id": "HWEomZvJtq2clqyM",
+          "name": "MongoDB account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list",
+          "cachedResultName": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "analyzed_tweets",
+          "mode": "list",
+          "cachedResultName": "analyzed_tweets"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "mongodb_id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "mongodb_id",
+              "displayName": "mongodb_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "tweet_user",
+              "displayName": "tweet_user",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "tweet_text",
+              "displayName": "tweet_text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "query_topic",
+              "displayName": "query_topic",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "sentiment",
+              "displayName": "sentiment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "analyzed_at",
+              "displayName": "analyzed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        848,
+        16
+      ],
+      "id": "aa57db32-1d4d-4787-a105-14cab9762fba",
+      "name": "Insert or update rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "Ngj8n4Umj93wqSA1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cbdf90e0-1698-47ba-a8a5-18f9f297eee7",
+              "name": "_id",
+              "value": "={{ $('merge_data').item.json.mongodb_id }}",
+              "type": "string"
+            },
+            {
+              "id": "0bcde5fd-1467-4104-a6c9-255ce9a42d8c",
+              "name": "sentiment_analyzed",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1072,
+        256
+      ],
+      "id": "49529a77-1217-4783-82b3-58a6922ee69e",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e953c379-47c1-4b5f-89d3-c8a014c92e53",
+              "leftValue": "={{ $json.sentiment }}",
+              "rightValue": "Irrelevan\nIrrelevant",
+              "operator": {
+                "type": "string",
+                "operation": "notRegex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        592,
+        144
+      ],
+      "id": "24b472d4-df2c-422c-92cb-c5d74018b936",
+      "name": "If"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Find documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find documents": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "merge_data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        []
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "merge_data": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert or update rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Update documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Insert or update rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "1487e35f-48f1-4544-b7c8-b3889e2c8678",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "539d62d65200153a5aa93a808de3c2826cacb6559ef433080da70c47954def80"
+  },
+  "id": "Fz8nWdfBzxAqYaDs",
+  "tags": []
+}

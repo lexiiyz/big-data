@@ -1,0 +1,495 @@
+{
+  "name": "Chatbot",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "@devlikeapro/n8n-nodes-waha.wahaTrigger",
+      "typeVersion": 202502,
+      "position": [
+        -1488,
+        16
+      ],
+      "id": "e83b40ed-876a-4824-a788-d2d8fc9b26e1",
+      "name": "WAHA Trigger",
+      "webhookId": "094e1d98-ebeb-4b1f-9f18-e87ba1055ef1"
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Seen",
+        "requestOptions": {}
+      },
+      "type": "@devlikeapro/n8n-nodes-waha.WAHA",
+      "typeVersion": 202502,
+      "position": [
+        -1168,
+        32
+      ],
+      "id": "6acc64ce-f4c1-4ce8-af42-7ab6cd8fd4d5",
+      "name": "Send Seen",
+      "credentials": {
+        "wahaApi": {
+          "id": "JRdFSL295PCghJPr",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Start Typing",
+        "session": "={{ $('WAHA Trigger').item.json.session }}",
+        "chatId": "={{ $('WAHA Trigger').item.json.payload.from }}",
+        "requestOptions": {}
+      },
+      "type": "@devlikeapro/n8n-nodes-waha.WAHA",
+      "typeVersion": 202502,
+      "position": [
+        -1168,
+        240
+      ],
+      "id": "192140a0-5bed-48d9-89f3-754e810e3964",
+      "name": "Start Typing",
+      "credentials": {
+        "wahaApi": {
+          "id": "JRdFSL295PCghJPr",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('WAHA Trigger').item.json.payload.body }}",
+        "options": {
+          "systemMessage": "=Anda adalah seorang Data Analyst ahli yang profesional, formal, dan kooperatif. Tugas Anda adalah menjawab pertanyaan pengguna mengenai data sentimen Twitter dan analisis artikel berita dengan mengambil data tersebut secara langsung dari basis data.\n\nAnda memiliki akses terhadap DUA kumpulan data melalui sistem SQL yang telah disediakan:\n\n1. TOOL DATABASE TWITTER (Digunakan untuk mencari opini, sentimen media sosial, atau cuitan)\nTabel target: \"analyzed_tweets\"\nSkema:\n\nid (integer, primary key)\n\ntweet_user (varchar, username twitter)\n\ntweet_text (text, isi cuitan)\n\nquery_topic (varchar, topik pencarian)\n\nsentiment (varchar, nilai: 'Positif', 'Negatif', 'Netral')\n\nreason (text, alasan sentimen dari AI)\n\nanalyzed_at (timestamp, waktu sistem)\n\ntweet_posted_at (timestamp, waktu publikasi Twitter)\n\n2. TOOL DATABASE BERITA (Digunakan untuk mencari fakta lapangan, kejadian, atau artikel)\nTabel target: \"news_articles\"\nSkema:\n\nid (integer, primary key)\n\ntitle (text, judul berita)\n\nurl (text, tautan berita)\n\nsource (varchar, sumber berita, misal 'Radar Semarang')\n\npublished_at (timestamp, waktu publikasi artikel asli)\n\nkategori (varchar, misal 'Kecelakaan', 'Banjir', 'Kriminal', dll)\n\nringkasan (text, ringkasan isi berita oleh AI)\n\nprovinsi, kabupaten_kota, kecamatan, kelurahan, lokasi_detail (varchar/text, data lokasi)\n\nkorban_jiwa, korban_luka (integer)\n\nseverity (varchar, tingkat keparahan: 'ringan', 'sedang', 'berat')\n\nATURAN WAJIB (STRICT RULES):\n\nPEMILIHAN TOOL: Lakukan analisis secara saksama untuk menentukan apakah pengguna bertanya mengenai Twitter atau Berita. Panggil nama alat (tool) yang tepat untuk basis data yang sesuai. Apabila pengguna ingin membandingkan data media sosial dengan realitas pemberitaan, eksekusi kedua alat tersebut secara bergantian, kemudian berikan kesimpulan gabungannya.\n\nEKSEKUSI LANGSUNG: DILARANG merespons dengan pernyataan seperti \"Berikut query-nya...\" atau menjelaskan langkah kerja Anda. Anda diwajibkan menjalankan sistem tersebut secara otomatis di latar belakang, membaca hasilnya, dan menjawab pertanyaan pengguna secara komprehensif berdasarkan data asli yang ditarik.\n\nHAK AKSES READ-ONLY: DILARANG KERAS menjalankan perintah DROP, DELETE, UPDATE, atau INSERT. Anda hanya diizinkan untuk mengeksekusi perintah SELECT.\n\nPENCARIAN FLEKSIBEL: Selalu gunakan klausa ILIKE '%kata_kunci%' untuk pencarian berbasis teks guna menghindari kegagalan sistem terkait sensitivitas huruf (case-sensitive).\n\nATURAN WAKTU: Gunakan kolom tweet_posted_at (untuk Twitter) dan published_at (untuk Berita) apabila Anda diminta untuk melakukan penyaringan waktu atau mengurutkan data dari yang paling terbaru (ORDER BY).\n\nKONSISTENSI SENTIMEN: Pada tabel Twitter, kolom sentimen HANYA memuat tepat tiga nilai: 'Positif', 'Negatif', atau 'Netral' (Wajib diawali dengan huruf kapital). Gunakan format ini secara presisi pada klausa WHERE.\n\nFORMAT OUTPUT WHATSAPP (ATURAN MUTLAK & KRITIKAL):\nSistem ini terhubung langsung ke API WhatsApp. Penggunaan format Markdown standar akan merusak tampilan pesan. Anda WAJIB mematuhi instruksi pemformatan berikut tanpa pengecualian:\n\nDILARANG KERAS menggunakan bintang ganda (**teks**) untuk cetak tebal. Anda HANYA diizinkan menggunakan SATU bintang (*teks*).\n\nDILARANG KERAS menggunakan simbol header Markdown seperti #, ##, atau ###. Gunakan huruf kapital dengan satu bintang untuk judul utama (contoh: JUDUL UTAMA).\n\nDILARANG KERAS menggunakan emoji apa pun (seperti 📉, 🙏, dll). Pertahankan nada bahasa yang sepenuhnya formal, baku, dan profesional.\n\nJangan berikan salam penutup yang terkesan santai atau bertele-tele. Langsung berikan informasi faktual.\n\nCONTOH FORMAT YANG BENAR (WAJIB DIIKUTI):\n3 Tweet dengan Sentimen Negatif (paling baru)\n\n1 nasy (@loovveeroon) - 02 Jun 2026\n\n- Kutipan: \"aku td udah gak sanggup bgt...\"\n- Alasan: Mengeluhkan kelelahan, mual, dan pusing saat naik KRL.",
+          "passthroughBinaryImages": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -960,
+        208
+      ],
+      "id": "82117b06-745e-4110-9726-950c662a41c5",
+      "name": "AI Agent",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Stop Typing",
+        "session": "={{ $('WAHA Trigger').item.json.session }}",
+        "chatId": "={{ $('WAHA Trigger').item.json.payload.from }}",
+        "requestOptions": {}
+      },
+      "type": "@devlikeapro/n8n-nodes-waha.WAHA",
+      "typeVersion": 202502,
+      "position": [
+        -288,
+        -32
+      ],
+      "id": "7e95c309-83ed-44ec-899d-25af95812224",
+      "name": "Stop Typing",
+      "credentials": {
+        "wahaApi": {
+          "id": "JRdFSL295PCghJPr",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -1040,
+        480
+      ],
+      "id": "a18a26fe-9cad-47f7-84a0-aed1b535a002",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "7fAlLeWH3AxCtk3E",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Text",
+        "session": "={{ $('WAHA Trigger').item.json.session }}",
+        "chatId": "={{ $('WAHA Trigger').item.json.payload.from }}",
+        "reply_to": "={{ $('WAHA Trigger').item.json.payload.from }}",
+        "text": "={{ $('AI Agent').item.json.output }}",
+        "requestOptions": {}
+      },
+      "type": "@devlikeapro/n8n-nodes-waha.WAHA",
+      "typeVersion": 202502,
+      "position": [
+        -112,
+        -32
+      ],
+      "id": "2098d8c6-03c9-46d2-9c4a-5ee58a2db323",
+      "name": "Send a text message",
+      "credentials": {
+        "wahaApi": {
+          "id": "JRdFSL295PCghJPr",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Gunakan tool ini HANYA untuk menjalankan query SQL SELECT ke database PostgreSQL guna mengambil data sentimen Twitter.",
+        "operation": "executeQuery",
+        "query": "{{ $fromAI('query') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        -864,
+        480
+      ],
+      "id": "0bb5df4f-450e-49a9-a6f2-f1c2853044b4",
+      "name": "Query for Twitter",
+      "credentials": {
+        "postgres": {
+          "id": "Ngj8n4Umj93wqSA1",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "=Gunakan tool ini HANYA untuk menjalankan query SQL SELECT ke database PostgreSQL guna mengambil data Berita Semarang.",
+        "operation": "executeQuery",
+        "query": "{{ $fromAI('query') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        -496,
+        496
+      ],
+      "id": "c6f8901f-2e76-440c-9926-8b1bd8342694",
+      "name": "Query For News",
+      "credentials": {
+        "postgres": {
+          "id": "6RmnXEBACIWaYsam",
+          "name": "Postgres account News"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('WAHA Trigger').item.json.payload.body }}",
+        "options": {
+          "systemMessage": "=You are a helpful asMohon maaf, Kak. Model AI (terutama Large Language Models) memang sering kali \"bandel\" dan secara bawaan (default) akan selalu kembali ke format Markdown seperti  karena itu adalah bahasa dasar yang mereka pelajari saat pelatihan.\n\nUntuk mengatasinya, kita harus membuat aturan formatnya menjadi instruksi absolut dengan menyertakan contoh \"BENAR vs SALAH\" secara langsung di dalam system prompt, serta memberikan larangan total terhadap penggunaan emoji agar tidak ada lagi hasil yang terkesan santai atau cringe.\n\nBerikut adalah revisi system prompt yang sudah diperkuat secara signifikan pada bagian formatting (Kakak bisa langsung menyalin teks di bawah ini):\n\nAnda adalah seorang Data Analyst ahli yang profesional, formal, dan kooperatif. Tugas Anda adalah menjawab pertanyaan pengguna mengenai data sentimen Twitter dan analisis artikel berita dengan mengambil data tersebut secara langsung dari basis data.\n\nAnda memiliki akses terhadap DUA kumpulan data melalui sistem SQL yang telah disediakan:\n\n1. TOOL DATABASE TWITTER (Digunakan untuk mencari opini, sentimen media sosial, atau cuitan)\nTabel target: \"analyzed_tweets\"\nSkema:\n\nid (integer, primary key)\n\ntweet_user (varchar, username twitter)\n\ntweet_text (text, isi cuitan)\n\nquery_topic (varchar, topik pencarian)\n\nsentiment (varchar, nilai: 'Positif', 'Negatif', 'Netral')\n\nreason (text, alasan sentimen dari AI)\n\nanalyzed_at (timestamp, waktu sistem)\n\ntweet_posted_at (timestamp, waktu publikasi Twitter)\n\n2. TOOL DATABASE BERITA (Digunakan untuk mencari fakta lapangan, kejadian, atau artikel)\nTabel target: \"news_articles\"\nSkema:\n\nid (integer, primary key)\n\ntitle (text, judul berita)\n\nurl (text, tautan berita)\n\nsource (varchar, sumber berita, misal 'Radar Semarang')\n\npublished_at (timestamp, waktu publikasi artikel asli)\n\nkategori (varchar, misal 'Kecelakaan', 'Banjir', 'Kriminal', dll)\n\nringkasan (text, ringkasan isi berita oleh AI)\n\nprovinsi, kabupaten_kota, kecamatan, kelurahan, lokasi_detail (varchar/text, data lokasi)\n\nkorban_jiwa, korban_luka (integer)\n\nseverity (varchar, tingkat keparahan: 'ringan', 'sedang', 'berat')\n\nATURAN WAJIB (STRICT RULES):\n\nPEMILIHAN TOOL: Lakukan analisis secara saksama untuk menentukan apakah pengguna bertanya mengenai Twitter atau Berita. Panggil nama alat (tool) yang tepat untuk basis data yang sesuai. Apabila pengguna ingin membandingkan data media sosial dengan realitas pemberitaan, eksekusi kedua alat tersebut secara bergantian, kemudian berikan kesimpulan gabungannya.\n\nEKSEKUSI LANGSUNG: DILARANG merespons dengan pernyataan seperti \"Berikut query-nya...\" atau menjelaskan langkah kerja Anda. Anda diwajibkan menjalankan sistem tersebut secara otomatis di latar belakang, membaca hasilnya, dan menjawab pertanyaan pengguna secara komprehensif berdasarkan data asli yang ditarik.\n\nHAK AKSES READ-ONLY: DILARANG KERAS menjalankan perintah DROP, DELETE, UPDATE, atau INSERT. Anda hanya diizinkan untuk mengeksekusi perintah SELECT.\n\nPENCARIAN FLEKSIBEL: Selalu gunakan klausa ILIKE '%kata_kunci%' untuk pencarian berbasis teks guna menghindari kegagalan sistem terkait sensitivitas huruf (case-sensitive).\n\nATURAN WAKTU: Gunakan kolom tweet_posted_at (untuk Twitter) dan published_at (untuk Berita) apabila Anda diminta untuk melakukan penyaringan waktu atau mengurutkan data dari yang paling terbaru (ORDER BY).\n\nKONSISTENSI SENTIMEN: Pada tabel Twitter, kolom sentimen HANYA memuat tepat tiga nilai: 'Positif', 'Negatif', atau 'Netral' (Wajib diawali dengan huruf kapital). Gunakan format ini secara presisi pada klausa WHERE.\n\nFORMAT OUTPUT WHATSAPP (ATURAN MUTLAK & KRITIKAL):\nSistem ini terhubung langsung ke API WhatsApp. Penggunaan format Markdown standar akan merusak tampilan pesan. Anda WAJIB mematuhi instruksi pemformatan berikut tanpa pengecualian:\n\nDILARANG KERAS menggunakan bintang ganda (**teks**) untuk cetak tebal. Anda HANYA diizinkan menggunakan SATU bintang (*teks*).\n\nDILARANG KERAS menggunakan simbol header Markdown seperti #, ##, atau ###. Gunakan huruf kapital dengan satu bintang untuk judul utama (contoh: JUDUL UTAMA).\n\nDILARANG KERAS menggunakan emoji apa pun (seperti 📉, 🙏, dll). Pertahankan nada bahasa yang sepenuhnya formal, baku, dan profesional.\n\nJangan berikan salam penutup yang terkesan santai atau bertele-tele. Langsung berikan informasi faktual.\n\nCONTOH FORMAT YANG BENAR (WAJIB DIIKUTI):\n3 Tweet dengan Sentimen Negatif (paling baru)\n\n1 nasy (@loovveeroon) - 02 Jun 2026\n\n- Kutipan: \"aku td udah gak sanggup bgt...\"\n- Alasan: Mengeluhkan kelelahan, mual, dan pusing saat naik KRL.sistant"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -592,
+        208
+      ],
+      "id": "b3b739cf-41ce-4145-8b90-392b2b8aa571",
+      "name": "AI Agent1",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        496
+      ],
+      "id": "1831c905-294c-42ce-89c9-7936d83563a7",
+      "name": "Groq Chat Model1",
+      "credentials": {
+        "groqApi": {
+          "id": "kcBb0A58O4bFkc8L",
+          "name": "Groq account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tangkap pesan error dari node sebelumnya (AI Agent)\n// Jika undefined, gunakan string kosong agar tidak crash\nconst rawError = $json.error?.message || $json.error || \"Unknown Error\";\nconst errorString = String(rawError).toLowerCase();\n\n// Siapkan pesan default jika error-nya aneh/tidak dikenali\nlet friendlyMessage = \"Maaf, sistem saat ini sedang mengalami gangguan teknis. Silakan coba beberapa saat lagi.\";\n\n// Deteksi spesifik: Limit Token / Quota Habis (Error 429)\nif (errorString.includes(\"429\") || errorString.includes(\"too many request\") || errorString.includes(\"quota\")) {\n    friendlyMessage = \"Maaf, sistem sedang melayani banyak permintaan (antrean penuh). Mohon tunggu sekitar 1 menit lalu coba lagi.\";\n} \n// Deteksi spesifik: Timeout / Otak AI lelet mikir\nelse if (errorString.includes(\"timeout\") || errorString.includes(\"econnreset\")) {\n    friendlyMessage = \"Maaf, koneksi otak AI kami sedang lambat. Pertanyaanmu gagal diproses karena waktu tunggu habis (Timeout).\";\n} \n// Deteksi spesifik: API Key salah / Server AI mati (Error 401 / 403)\nelse if (errorString.includes(\"401\") || errorString.includes(\"403\") || errorString.includes(\"authentication\")) {\n    friendlyMessage = \"Sistem AI sedang dalam perbaikan jaringan. (Kode: Auth Error). Hubungi administrator.\";\n}\n\n// Format output untuk dikembalikan ke Vercel (sesuaikan key \"text\" dengan frontend-mu)\nreturn {\n    text: friendlyMessage,\n    // Kita tetap kirim raw_error untuk kebutuhan debugging di console browser (optional)\n    debug_error: rawError \n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        208
+      ],
+      "id": "27bc4a9b-3171-4b2b-864b-6b227abf625a",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Stop Typing",
+        "session": "={{ $('WAHA Trigger').item.json.session }}",
+        "chatId": "={{ $('WAHA Trigger').item.json.payload.from }}",
+        "requestOptions": {}
+      },
+      "type": "@devlikeapro/n8n-nodes-waha.WAHA",
+      "typeVersion": 202502,
+      "position": [
+        -96,
+        208
+      ],
+      "id": "ffa4739b-72ce-4153-a078-3aaddc06b613",
+      "name": "Stop Typing1",
+      "credentials": {
+        "wahaApi": {
+          "id": "JRdFSL295PCghJPr",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Text",
+        "session": "={{ $('WAHA Trigger').item.json.session }}",
+        "chatId": "={{ $('WAHA Trigger').item.json.payload.from }}",
+        "reply_to": "={{ $('WAHA Trigger').item.json.payload.from }}",
+        "text": "={{ $('Code in JavaScript1').item.text }}",
+        "requestOptions": {}
+      },
+      "type": "@devlikeapro/n8n-nodes-waha.WAHA",
+      "typeVersion": 202502,
+      "position": [
+        64,
+        208
+      ],
+      "id": "96e6c554-981a-4f69-90e3-32bb224708d4",
+      "name": "Send a text message1",
+      "credentials": {
+        "wahaApi": {
+          "id": "JRdFSL295PCghJPr",
+          "name": "WAHA account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -672,
+        496
+      ],
+      "id": "7068b325-5754-43ba-9af9-3bd19c4ef57f",
+      "name": "Simple Memory"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "WAHA Trigger": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Send Seen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Seen": {
+      "main": [
+        [
+          {
+            "node": "Start Typing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Typing": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Stop Typing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stop Typing": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query for Twitter": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query For News": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Stop Typing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Stop Typing1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stop Typing1": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "a87e34a5-b812-45b4-af99-687ca268ec93",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "539d62d65200153a5aa93a808de3c2826cacb6559ef433080da70c47954def80"
+  },
+  "id": "7P6b55ui0tmCiQ1T",
+  "tags": []
+}

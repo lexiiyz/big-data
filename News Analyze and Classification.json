@@ -1,0 +1,720 @@
+{
+  "name": "News Analyze and Classification",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        336,
+        -64
+      ],
+      "id": "5d847708-bb46-4699-af1c-3e81aa0dcf53",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        400,
+        192
+      ],
+      "id": "168e3e71-8fc5-477f-bde2-1e045aeb49d1",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Find documents').item.json.full_text }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=Kamu adalah AI Data Analyst yang bertugas mengekstrak informasi terstruktur dari artikel berita lokal berbahasa Indonesia (khususnya wilayah Jawa Tengah).\n\nTUGAS UTAMA:\nAnalisis FOKUS UTAMA artikel. Jangan terkecoh oleh penyebutan kejadian di masa lalu jika fokus artikel saat ini adalah hal lain (misal: santunan, peresmian bangunan, atau himbauan).\n\nKEMBALIKAN HANYA FORMAT JSON BERIKUT:\n{\n  \"kategori\": \"string\",\n  \"ringkasan\": \"string\",\n  \"provinsi\": \"string | null\",\n  \"kabupaten_kota\": \"string | null\",\n  \"kecamatan\": \"string | null\",\n  \"kelurahan\": \"string | null\",\n  \"lokasi_detail\": \"string | null\",\n  \"korban_jiwa\": \"integer | null\",\n  \"korban_luka\": \"integer | null\",\n  \"severity\": \"string | null\"\n}\n\nATURAN PENGISIAN:\n\n1. Kategori (Pilih SATU yang paling akurat mewakili FOKUS UTAMA teks saat ini):\n- \"Kecelakaan\" — insiden lalu lintas/tabrakan AKTUAL yang baru terjadi.\n- \"Banjir\" — genangan/luapan air AKTUAL.\n- \"Gempa\" — getaran bumi AKTUAL.\n- \"Kebakaran\" — insiden api AKTUAL.\n- \"Longsor\" — pergerakan tanah AKTUAL.\n- \"Kriminal\" — tindak kejahatan AKTUAL.\n- \"Pasca Insiden\" — berita tentang sidang, santunan, peringatan, atau pembangunan di lokasi kejadian masa lalu (Contoh: Bangun masjid di bekas lokasi kecelakaan).\n- \"Pencegahan\" — himbauan, sosialisasi, atau simulasi bencana.\n- \"Lainnya\" — tidak masuk kategori di atas.\n\n2. Lokasi (provinsi, kabupaten_kota, kecamatan, kelurahan, lokasi_detail):\n- Ekstrak HANYA jika disebutkan secara eksplisit di teks. Gunakan nama baku (misal: \"Kota Semarang\").\n- Jika tidak ada lokasi, isi dengan \"\" (string kosong, jangan null).\n\n3. Korban & Severity:\n- korban_jiwa & korban_luka: Isi dengan angka jika disebutkan. Jika berita \"Pasca Insiden\" membahas korban masa lalu, tetap isi angka tersebut HANYA JIKA relevan dengan konteks. Jika tidak ada info korban, isi dengan 0 (jangan null).\n- severity: \n  - \"ringan\" (tanpa korban jiwa, kerugian kecil)\n  - \"sedang\" (ada luka/kerugian material signifikan)\n  - \"berat\" (ada korban jiwa/kerusakan masif)\n  - \"\" (jika kategori adalah Pencegahan/Pasca Insiden atau tidak cukup info).\n\nOUTPUT HARUS 100% JSON VALID. Jangan tambahkan teks pembuka, penutup, atau markdown backticks (```json)."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        768,
+        208
+      ],
+      "id": "b9c15b19-814b-4eb3-b1f3-ff9c461c0bff",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-20b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        624,
+        416
+      ],
+      "id": "2a5c63ed-73fa-42bb-b832-4779c060ab60",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "bRRocJrfynpjaUPy",
+          "name": "Groq account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "collection": "raw_articles",
+        "options": {
+          "limit": 2
+        },
+        "query": "{\n  \"classified\": { \"$ne\": true }\n}"
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        544,
+        -64
+      ],
+      "id": "8973f399-ee5c-42d3-9ab2-f8094ef7b90f",
+      "name": "Find documents",
+      "credentials": {
+        "mongoDb": {
+          "id": "JRcWccwTDiIlmgIn",
+          "name": "MongoDB account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cbdf90e0-1698-47ba-a8a5-18f9f297eee7",
+              "name": "_id",
+              "value": "={{ $('merge_data').item.json.mongo_id }}",
+              "type": "string"
+            },
+            {
+              "id": "0bcde5fd-1467-4104-a6c9-255ce9a42d8c",
+              "name": "=classified",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1808,
+        32
+      ],
+      "id": "9e00a4dc-c489-4627-85d2-8de07aabeea2",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code Node — News Article Merging\n\n// Mengambil data AI (langsung sebagai objek, tanpa di-parse ulang)\nconst llmResult = $input.first().json.output || $input.first().json;\nconst originalArticle = $('Find documents').item.json;\n\n// Helper: konversi string ke integer, return null jika tidak valid\nfunction toIntOrNull(val) {\n  const n = parseInt(val);\n  return isNaN(n) ? null : n;\n}\n\n// Helper: normalisasi string kosong ke null\nfunction strOrNull(val) {\n  if (val === undefined || val === null) return null;\n  const s = String(val).trim();\n  return s.length > 0 ? s : null;\n}\n\nreturn {\n  // Referensi ke MongoDB\n  mongo_id: String(originalArticle._id),\n\n  // Identitas artikel\n  title:        originalArticle.title,\n  url:          originalArticle.url,\n  source:       originalArticle.source || 'Radar Semarang',\n\n  // Waktu\n  published_at: originalArticle.published_at || null,\n  scraped_at:   originalArticle.scraped_at   || null,\n  analyzed_at:  new Date().toISOString(),\n\n  // Hasil klasifikasi AI\n  kategori:     strOrNull(llmResult.kategori),\n  ringkasan:    strOrNull(llmResult.ringkasan),\n\n  // Lokasi (semua nullable)\n  provinsi:       strOrNull(llmResult.provinsi),\n  kabupaten_kota: strOrNull(llmResult.kabupaten_kota),\n  kecamatan:      strOrNull(llmResult.kecamatan),\n  kelurahan:      strOrNull(llmResult.kelurahan),\n  lokasi_detail:  strOrNull(llmResult.lokasi_detail),\n\n  // Metadata tambahan\n  korban_jiwa: toIntOrNull(llmResult.korban_jiwa),\n  korban_luka: toIntOrNull(llmResult.korban_luka),\n  severity:    strOrNull(llmResult.severity),\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        176
+      ],
+      "id": "66445e04-ee31-44c0-b482-af3a846b7d18",
+      "name": "merge_data"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "collection": "raw_articles",
+        "updateKey": "_id",
+        "fields": "=classified",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mongoDb",
+      "typeVersion": 1.2,
+      "position": [
+        1824,
+        288
+      ],
+      "id": "8de18c6b-f231-48a4-a1d9-fe9a21c78c75",
+      "name": "Update documents",
+      "credentials": {
+        "mongoDb": {
+          "id": "JRcWccwTDiIlmgIn",
+          "name": "MongoDB account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "news_articles",
+          "mode": "list",
+          "cachedResultName": "news_articles"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "korban_jiwa": "={{ $('merge_data').item.json.korban_jiwa }}",
+            "korban_luka": "={{ $('merge_data').item.json.korban_luka }}",
+            "latitude": "={{ $json.lat }}",
+            "longitude": "={{ $json.lon }}",
+            "mongo_id": "={{ $('merge_data').item.json.mongo_id }}",
+            "title": "={{ $('merge_data').item.json.title }}",
+            "url": "={{ $('merge_data').item.json.url }}",
+            "source": "={{ $('merge_data').item.json.source }}",
+            "published_at": "={{ $('merge_data').item.json.published_at }}",
+            "scraped_at": "={{ $('merge_data').item.json.scraped_at }}",
+            "analyzed_at": "={{ $('merge_data').item.json.analyzed_at }}",
+            "kategori": "={{ $('merge_data').item.json.kategori }}",
+            "ringkasan": "={{ $('merge_data').item.json.ringkasan }}",
+            "provinsi": "={{ $('merge_data').item.json.provinsi }}",
+            "kabupaten_kota": "={{ $('merge_data').item.json.kabupaten_kota }}",
+            "kecamatan": "={{ $('merge_data').item.json.kecamatan }}",
+            "kelurahan": "={{ $('merge_data').item.json.kelurahan }}",
+            "lokasi_detail": "={{ $('merge_data').item.json.lokasi_detail }}",
+            "severity": "={{ $('merge_data').item.json.severity }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "mongo_id",
+              "displayName": "mongo_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source",
+              "displayName": "source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "published_at",
+              "displayName": "published_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "scraped_at",
+              "displayName": "scraped_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "analyzed_at",
+              "displayName": "analyzed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kategori",
+              "displayName": "kategori",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ringkasan",
+              "displayName": "ringkasan",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "provinsi",
+              "displayName": "provinsi",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kabupaten_kota",
+              "displayName": "kabupaten_kota",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kecamatan",
+              "displayName": "kecamatan",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "kelurahan",
+              "displayName": "kelurahan",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "lokasi_detail",
+              "displayName": "lokasi_detail",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "korban_jiwa",
+              "displayName": "korban_jiwa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "korban_luka",
+              "displayName": "korban_luka",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "severity",
+              "displayName": "severity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "latitude",
+              "displayName": "latitude",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "longitude",
+              "displayName": "longitude",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1568,
+        288
+      ],
+      "id": "8a10153d-de40-4503-8bd7-bfd59be86b69",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "6RmnXEBACIWaYsam",
+          "name": "Postgres account News"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "1348990681",
+        "text": "=🧠 [AI AGENT] Analisis Berita Dimulai!  Ditemukan {{ $input.all().length }} data baru yang belum dianalisis. Memulai proses klasifikasi menggunakan Groq...",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1040,
+        -64
+      ],
+      "id": "7ce59070-30e1-473f-a7ac-82cb24199452",
+      "name": "Send a text message",
+      "webhookId": "aa10d270-2892-461e-a5f0-6d074399f630",
+      "executeOnce": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "LGBaxsitHR55688Z",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "1348990681",
+        "text": "=✅ [AI AGENT] Proses Selesai!  Semua data pada batch ini berhasil dianalisis dan disimpan ke PostgreSQL.",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        816,
+        48
+      ],
+      "id": "c087a4ce-6cec-41e6-8312-f1fa425d17b7",
+      "name": "Send a text message1",
+      "webhookId": "422a536d-d633-406f-a293-3fee6dda6f69",
+      "executeOnce": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "LGBaxsitHR55688Z",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"kategori\": \"Pasca Insiden\",\n  \"ringkasan\": \"Warga membangun masjid di lokasi bekas kecelakaan bus.\",\n  \"provinsi\": \"Jawa Tengah\",\n  \"kabupaten_kota\": \"Semarang\",\n  \"kecamatan\": \"Tembalang\",\n  \"kelurahan\": \"Bulusan\",\n  \"lokasi_detail\": \"Jalan Pemuda No 10\",\n  \"korban_jiwa\": 0,\n  \"korban_luka\": 2,\n  \"severity\": \"ringan\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1040,
+        416
+      ],
+      "id": "d2c475fa-0b90-475a-8449-901082407224",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "002441a8-9ab5-49dd-a8e8-ef5b12989066",
+              "leftValue": "={{ $json.kecamatan }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1296,
+        176
+      ],
+      "id": "3c21fca7-0f04-4682-a4bd-7b5a7fb9eccf",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "url": "https://nominatim.openstreetmap.org/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "=={{ $json.kecamatan }}, {{ $json.kabupaten_kota }}, Jawa Tengah"
+            },
+            {
+              "name": "format",
+              "value": "=json"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "N8N-NewsScraper-Tugas/1.0"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1552,
+        32
+      ],
+      "id": "d37eb1f8-049f-41af-bb2f-82e0917b85e7",
+      "name": "Openstreet Map Pinpoint"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Find documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "merge_data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find documents": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "merge_data": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Update documents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Openstreet Map Pinpoint",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Openstreet Map Pinpoint": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "d8dffa99-6e2f-4e53-8007-bf91afd1f342",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "539d62d65200153a5aa93a808de3c2826cacb6559ef433080da70c47954def80"
+  },
+  "id": "e8bwOmn2VgN6DDq9",
+  "tags": []
+}

@@ -1,0 +1,184 @@
+{
+  "name": "Scrapper",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -208,
+        0
+      ],
+      "id": "b0c3b74a-6acb-4dd3-976f-9523e89d58e0",
+      "name": "X Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://scraper:5000/api/twitter/scrape",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"topic\": \"Analisa Transum & Fasum Indonesia\",\n  \"query\": \"(\\\"transum\\\" OR \\\"transportasi umum\\\" OR \\\"fasilitas publik\\\" OR \\\"fasilitas umum\\\") (angkot OR busway OR krl OR mrt OR halte OR stasiun OR trotoar)\",\n  \"max_tweets\": 50\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "4ac817af-bcef-4da4-87d4-151b6c6f4e15",
+      "name": "X Request"
+    },
+    {
+      "parameters": {
+        "chatId": "1348990681",
+        "text": "=Twitter Scrapper Dimulai. Status Server: {{ $('X Request').item.json.status }} Detail: {{ $('X Request').item.json.message }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "a7ec490e-25d1-46d5-8702-d1b6775296b2",
+      "name": "X Scrap Notifier",
+      "webhookId": "12ab6146-2bb8-4665-a340-c16eacf207ee",
+      "credentials": {
+        "telegramApi": {
+          "id": "LGBaxsitHR55688Z",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "1348990681",
+        "text": "=News Scrapper Dimulai. Status Server: {{ $('News Request').item.json.status }} Detail: {{ $('News Request').item.json.message }}  ",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        208,
+        272
+      ],
+      "id": "26b72236-409b-48ee-b978-795128994f69",
+      "name": "News Scrap Notifier",
+      "webhookId": "12ab6146-2bb8-4665-a340-c16eacf207ee",
+      "credentials": {
+        "telegramApi": {
+          "id": "LGBaxsitHR55688Z",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://scraper:5000/api/news/scrape-auto",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"queries\": [\"Kecelakaan\", \"Banjir\"],\n  \"max_pages\": 5\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        0,
+        272
+      ],
+      "id": "a24802e8-1c0b-4a65-a514-a7e58d24ca33",
+      "name": "News Request"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -208,
+        272
+      ],
+      "id": "8599c06c-6e9c-4927-b5e6-f19081ef2180",
+      "name": "News Schedule Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "X Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "X Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X Request": {
+      "main": [
+        [
+          {
+            "node": "X Scrap Notifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "News Request": {
+      "main": [
+        [
+          {
+            "node": "News Scrap Notifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "News Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "News Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "18bf5c4b-1b05-41a1-abbb-e1e9f11c50db",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "539d62d65200153a5aa93a808de3c2826cacb6559ef433080da70c47954def80"
+  },
+  "id": "daEDfKvQml2ArCFb",
+  "tags": []
+}

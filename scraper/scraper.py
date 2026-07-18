@@ -1,6 +1,3 @@
-# Twitter scraper logic — digunakan oleh main.py
-# File ini tidak dijalankan langsung.
-
 import asyncio
 import os
 import json
